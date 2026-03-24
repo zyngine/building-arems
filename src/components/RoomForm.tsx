@@ -88,6 +88,7 @@ export function RoomForm({ room, onClose }: RoomFormProps) {
 
   const handleClear = async () => {
     if (!d) return;
+    if (!window.confirm("Are you sure you want to clear this donation? This will reset the room to available.")) return;
 
     setIsSaving(true);
     try {

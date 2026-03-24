@@ -1,27 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { jwtVerify } from "jose";
 import { createServerClient } from "@/lib/supabase/server";
-
-const SALT = "arems-building-naming-rights-2026";
-
-async function verifyAdmin(request: NextRequest): Promise<boolean> {
-  const token = request.cookies.get("admin_session")?.value;
-  if (!token) return false;
-
-  try {
-    const pin = process.env.ADMIN_PIN;
-    if (!pin) return false;
-    const secret = new TextEncoder().encode(pin + SALT);
-    await jwtVerify(token, secret);
-    return true;
-  } catch {
-    return false;
-  }
-}
+import { verifyAdminRequest } from "@/lib/auth";
 
 // POST — create a new donation
 export async function POST(request: NextRequest) {
-  if (!(await verifyAdmin(request))) {
+  if (!(await verifyAdminRequest(request))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -59,7 +42,7 @@ export async function POST(request: NextRequest) {
 
 // PUT — update an existing donation
 export async function PUT(request: NextRequest) {
-  if (!(await verifyAdmin(request))) {
+  if (!(await verifyAdminRequest(request))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -98,7 +81,7 @@ export async function PUT(request: NextRequest) {
 
 // DELETE — remove a donation (reset room to available)
 export async function DELETE(request: NextRequest) {
-  if (!(await verifyAdmin(request))) {
+  if (!(await verifyAdminRequest(request))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

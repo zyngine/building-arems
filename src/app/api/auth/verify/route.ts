@@ -1,13 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SignJWT } from "jose";
-
-const SALT = "arems-building-naming-rights-2026";
-
-function getSecret() {
-  const pin = process.env.ADMIN_PIN;
-  if (!pin) throw new Error("ADMIN_PIN not configured");
-  return new TextEncoder().encode(pin + SALT);
-}
+import { getJwtSecret } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,7 +14,7 @@ export async function POST(request: NextRequest) {
       .setProtectedHeader({ alg: "HS256" })
       .setIssuedAt()
       .setExpirationTime("12h")
-      .sign(getSecret());
+      .sign(getJwtSecret());
 
     const response = NextResponse.json({ success: true });
     response.cookies.set("admin_session", token, {
