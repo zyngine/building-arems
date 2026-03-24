@@ -113,7 +113,7 @@ src/
 3. User enters up to 6 digits on a numeric keypad (gold dots fill as digits are entered).
 4. On submit (auto-submits when 6 digits entered, or tap Unlock): POST to `/api/auth/verify` with the PIN.
 5. Server compares PIN against `ADMIN_PIN` environment variable.
-6. On success: server sets a signed HTTP-only cookie (JWT signed with a server-side secret derived from `ADMIN_PIN` + a salt or a separate `SESSION_SECRET` env var). Returns 200.
+6. On success: server sets a signed HTTP-only cookie (JWT signed with a secret derived from `ADMIN_PIN` + a hardcoded salt). No separate SESSION_SECRET env var needed — keeps setup simple. Returns 200.
 7. Client updates admin state via `useAdmin` hook. Modal forms become editable.
 8. On failure: shake animation on the keypad, dots reset, "Invalid PIN" message.
 9. Logout: POST to `/api/auth/logout`, clears the cookie.
