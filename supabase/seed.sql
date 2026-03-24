@@ -1,0 +1,14 @@
+-- Seed file for EMS Building Naming Rights
+-- This file is intentionally empty. Room data will be populated manually.
+--
+-- Expected room format:
+-- INSERT INTO rooms (slug, name, type, description, price, coordinates, sort_order) VALUES
+--   ('bay-1', 'Apparatus Bay 1', 'bay', 'Primary apparatus storage bay', 10000000, '{"x": 5, "y": 5, "width": 25, "height": 40}', 1),
+--   ('office-1', 'Captain''s Office', 'office', 'Administrative office', 2500000, '{"x": 5, "y": 58, "width": 18, "height": 35}', 10);
+--
+-- Coordinates are percentages of the blueprint image dimensions.
+-- Prices are in cents (e.g., 10000000 = $100,000).
+--
+-- Expected donation format (created via the app, not seeded):
+-- INSERT INTO donations (room_id, donor_name, dedication_text, status, donor_phone, donor_email, pledge_amount, payment_method) VALUES
+--   ('<room-uuid>', 'Smith Family Foundation', 'In honor of Adams County first responders', 'sold', '(717) 555-0142', 'smith@email.com', 10000000, 'check');
