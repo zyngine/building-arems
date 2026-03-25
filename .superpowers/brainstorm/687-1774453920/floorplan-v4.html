@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>AREMS Floor Plan</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0f1a;font-family:'Inter',system-ui,sans-serif;color:#fff;display:flex;flex-direction:column;align-items:center;min-height:100vh;padding:20px}
+h1{font-family:Georgia,serif;color:#d4a44a;font-size:22px;margin-bottom:2px}
+.sub{color:#6b7280;font-size:13px;margin-bottom:14px}
+.wrap{width:100%;max-width:1500px;background:#111827;border-radius:12px;border:1px solid #1f2937;padding:24px;overflow-x:auto}
+svg{width:100%;height:auto;display:block;min-width:900px}
+.room{cursor:pointer;transition:filter .15s}
+.room:hover{filter:brightness(1.5)}
+.rl{pointer-events:none;fill:#e2e8f0;font-family:'Inter',system-ui,sans-serif;font-weight:600;text-anchor:middle;dominant-baseline:central}
+.rp{pointer-events:none;fill:#d4a44a;font-family:'Inter',system-ui,sans-serif;font-weight:500;text-anchor:middle;dominant-baseline:central}
+.cl{pointer-events:none;fill:#4b5563;font-family:'Inter',system-ui,sans-serif;font-weight:500;text-anchor:middle;dominant-baseline:central}
+#tt{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#111827;border:2px solid #d4a44a;border-radius:12px;padding:24px;z-index:100;min-width:240px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.6)}
+#tt h3{font-family:Georgia,serif;color:#fff;font-size:20px;margin-bottom:4px}
+#tt .tp{color:#9ca3af;font-size:12px;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+#tt .pr{color:#d4a44a;font-family:Georgia,serif;font-size:26px;font-weight:700}
+#tt .dm{color:#6b7280;font-size:11px;margin-top:10px}
+.leg{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin-top:14px}
+.leg span{display:flex;align-items:center;gap:5px;font-size:12px;color:#9ca3af}
+.leg i{width:14px;height:14px;border-radius:2px;border:2px solid;display:inline-block}
+.st{text-align:center;color:#6b7280;font-size:12px;margin-top:6px}
+</style>
+</head>
+<body>
+<h1>AREMS Capital Campaign — Building Floor Plan</h1>
+<p class="sub">Click any room to view details</p>
+<div class="wrap"><svg id="fp" viewBox="-4 -4 948 300"></svg></div>
+<div class="leg">
+  <span><i style="background:rgba(26,82,118,.5);border-color:#1a5276"></i>Apparatus Bay</span>
+  <span><i style="background:rgba(26,92,92,.5);border-color:#1a5c5c"></i>Bunk Room</span>
+  <span><i style="background:rgba(44,62,122,.5);border-color:#2c3e7a"></i>Office</span>
+  <span><i style="background:rgba(108,52,131,.5);border-color:#6c3483"></i>Common Area</span>
+  <span><i style="background:rgba(93,78,96,.5);border-color:#5d4e60"></i>Utility / Storage</span>
+</div>
+<div class="st"><span style="color:#d4a44a">40</span> rooms · <span style="color:#d4a44a">$1.5M</span> in naming rights · <span style="color:#d4a44a">$2M</span> campaign goal</div>
+<div id="tt" onclick="this.style.display='none'">
+  <h3 id="tn"></h3><div class="tp" id="ty"></div><div class="pr" id="tp"></div><div class="dm">Click to dismiss</div>
+</div>
+<script>
+var C={
+  bay:{f:'rgba(26,82,118,0.5)',s:'#1a5276'},
+  bedroom:{f:'rgba(26,92,92,0.5)',s:'#1a5c5c'},
+  office:{f:'rgba(44,62,122,0.5)',s:'#2c3e7a'},
+  common:{f:'rgba(108,52,131,0.5)',s:'#6c3483'},
+  utility:{f:'rgba(93,78,96,0.5)',s:'#5d4e60'},
+  _:{f:'rgba(31,41,55,0.2)',s:'#1f2937'}
+};
+
+// Blueprint proportions (approx feet → 5 SVG units/foot):
+// Left wing: ~50' = 250u  |  Apparatus Bay: ~75' = 375u  |  Right wing: ~70' = 350u
+// Left wing: x=0..250  |  Bay: x=250..625  |  Right wing: x=625..1000
+// Bunk rooms: y=0..48  |  Hallway: y=48..58  |  Main body: y=58..260
+
+// [name, type, price, x, y, w, h]
+var R=[
+  // ── TOP ROW: 6 Bunk Rooms (y=0..48, x=0..250) ──
+  ['Bunk Room 1','bedroom','$25,000',   0,  0, 42, 48],
+  ['Bunk Room 2','bedroom','$25,000',  42,  0, 42, 48],
+  ['Bunk Room 3','bedroom','$25,000',  84,  0, 42, 48],
+  ['Bunk Room 4','bedroom','$25,000', 126,  0, 42, 48],
+  ['Bunk Room 5','bedroom','$25,000', 168,  0, 42, 48],
+  ['Bunk Room 6','bedroom','$25,000', 210,  0, 40, 48],
+
+  // ── WEST HALLWAY (below bunk rooms, left wing only) ──
+  ['West Hallway','common','$50,000',    0, 48, 250, 10],
+
+  // ── LEFT COLUMN (x=0..52) with 5' vertical corridor (x=52..65) ──
+  ['Storage 1',    'utility','$5,000',   0, 58, 52, 20],
+  ['Storage 2',    'utility','$5,000',  65,192, 50, 28],
+  ['Laundry',      'utility','$5,000',  65,220, 50, 20],
+  ['Office 1',     'office', '$10,000', 65,240, 50, 20],
+  ['Bunk Room 7',  'bedroom','$25,000',  0, 78, 52, 46],
+  ['Bunk Room 8',  'bedroom','$25,000',  0,124, 52, 45],
+  ['Bunk Room 9',  'bedroom','$25,000',  0,169, 52, 46],
+  ['Bunk Room 10', 'bedroom','$25,000',  0,215, 52, 45],
+
+  // ── LEFT WING CENTER/RIGHT ROOMS ──
+  // Kitchen & Day Room: one open space, separate naming rights, extend to bottom wall (y=260)
+  ['Kitchen (West)','common','$100,000', 115, 58, 135, 50],
+  ['Day Room',      'common','$250,000', 115,108, 135, 152],
+
+  // ── APPARATUS BAYS (x=250..625) ──
+  // Bay 1 & 2: pull-through, each split into 2 naming sections (top/bottom)
+  ['Bay 1A','bay','$50,000', 250,  0, 94, 130],
+  ['Bay 1B','bay','$50,000', 250,130, 94, 130],
+  ['Bay 2A','bay','$50,000', 344,  0, 93, 130],
+  ['Bay 2B','bay','$50,000', 344,130, 93, 130],
+  // Daily Supply rooms sit behind bays 3 & 4 (at top, no drive-through)
+  ['Daily Supply 1','utility','$5,000', 437,  0, 94, 84],
+  ['Daily Supply 2','utility','$5,000', 531,  0, 94, 84],
+  // Bay 3 & 4: single-entry (doors bottom only), shorter — below Daily Supply
+  ['Bay 3','bay','$50,000', 437, 84, 94, 176],
+  ['Bay 4','bay','$50,000', 531, 84, 94, 176],
+
+  // ── ADMIN WING (x=625..930) ──
+  // Outer perimeter rooms along building walls
+  // Inner core: Supply Room, Office Supply, Restrooms, Meeting Room
+  // Horseshoe corridor between perimeter and core
+
+  // TOP WALL rooms (y=0..50) — no gaps, full width 625..930
+  ['Oxygen Storage',  'utility','$5,000',  625,  0, 100, 50],
+  ['Mechanical',       'utility','$5,000',  725,  0, 105, 50],
+  ['Kitchen 2',       'common','$100,000', 830,  0, 50, 50],
+  ['Office 2',        'office','$10,000',  880,  0, 50, 50],
+
+  // RIGHT WALL offices (x=880..930, stacked)
+  ['Office 3',        'office','$10,000',  880, 50, 50, 55],
+  ['Office 4',        'office','$10,000',  880,105, 50, 55],
+
+  // ── CORE ROOMS (inside horseshoe corridor) ──
+  // Upper core: Supply Room + Office Supply side by side
+  ['Supply Room',      'utility','$5,000',  637, 62, 58, 56],
+  ['Office Supply',    'utility','$5,000',  695, 62, 62, 56],
+  // Right core: Meeting Room (large, full core height)
+  ['Meeting Room',    'common','$250,000', 757, 62, 111, 113],
+
+  // ── EAST HALLWAY (bottom of horseshoe corridor) ──
+  ['East Hallway','common','$50,000', 625, 175, 305, 15],
+
+  // BOTTOM WALL offices (y=200..260)
+  ['Office 5','office','$10,000', 625,200, 60, 60],
+  ['Office 6','office','$10,000', 685,200, 60, 60],
+  ['Office 7','office','$10,000', 745,200, 60, 60],
+  ['Office 8','office','$10,000', 805,200, 60, 60],
+
+  // ── FLAG PLAZA (outside, dashed) ──
+  ['Flag Plaza','common','$25,000', 875,265, 48, 28],
+];
+
+// Context rooms (non-naming)
+var CTX=[
+  // Left wing vertical corridor (between left column and center rooms)
+  ['Corridor', 52, 58, 13, 169],
+  // Left wing restrooms (beside Kitchen/Day Room, stacked vertically)
+  ['Restroom', 65, 58, 50, 67],
+  ['Restroom', 65, 125, 50, 67],
+  // (Storage 2, Laundry, Office 1 below at y=192..260)
+  // Core restrooms (below Supply Room & Office Supply)
+  ['Restroom', 637, 118, 60, 57],
+  ['Restroom', 697, 118, 60, 57],
+  // Horseshoe corridor — left arm (between left wall and core)
+  ['Corridor', 625, 62, 12, 113],
+  // Horseshoe corridor — right arm (between core and right offices)
+  ['Corridor', 868, 50, 12, 125],
+  // Lobby (bottom right)
+  ['Lobby',    875, 200, 55, 60],
+];
+
+var svg=document.getElementById('fp');
+var NS='http://www.w3.org/2000/svg';
+function mk(t,a){var e=document.createElementNS(NS,t);for(var k in a)e.setAttribute(k,a[k]);return e}
+
+// ── BUILDING FILL ──
+svg.appendChild(mk('rect',{x:0,y:0,width:250,height:260,fill:'rgba(30,42,65,0.7)',stroke:'none'}));
+svg.appendChild(mk('rect',{x:250,y:0,width:375,height:260,fill:'rgba(30,42,65,0.7)',stroke:'none'}));
+svg.appendChild(mk('rect',{x:625,y:0,width:305,height:260,fill:'rgba(30,42,65,0.7)',stroke:'none'}));
+
+// ── BUILDING OUTLINE ──
+svg.appendChild(mk('rect',{x:0,y:0,width:930,height:260,fill:'none',stroke:'#7a9cc0','stroke-width':3,rx:1}));
+
+// Internal section dividers
+svg.appendChild(mk('line',{x1:250,y1:0,x2:250,y2:260,stroke:'#7a9cc0','stroke-width':3}));
+svg.appendChild(mk('line',{x1:625,y1:0,x2:625,y2:260,stroke:'#7a9cc0','stroke-width':3}));
+
+// ── BAY DOORS ──
+// Bay 1 & 2: pull-through (top + bottom doors)
+// Bay 3 & 4: single-entry (bottom doors only, Daily Supply rooms sit above)
+var bayDoors=[[250,94],[344,93],[437,94],[531,94]];
+
+// TOP doors — Bay 1 & 2 only
+for(var i=0;i<2;i++){
+  svg.appendChild(mk('rect',{x:bayDoors[i][0]+12,y:-2,width:bayDoors[i][1]-24,height:5,fill:'none',stroke:'#6b8aaa','stroke-width':1.5,rx:2,'stroke-dasharray':'4,2'}));
+}
+
+// BOTTOM doors — all 4 bays
+for(var i=0;i<4;i++){
+  svg.appendChild(mk('rect',{x:bayDoors[i][0]+12,y:257,width:bayDoors[i][1]-24,height:5,fill:'none',stroke:'#6b8aaa','stroke-width':1.5,rx:2,'stroke-dasharray':'4,2'}));
+}
+
+// Divider between Daily Supply rooms and bays 3 & 4
+svg.appendChild(mk('line',{x1:437,y1:84,x2:625,y2:84,stroke:'#7a9cc0','stroke-width':2}));
+
+// Section dividers (thicker walls between wings)
+svg.appendChild(mk('line',{x1:250,y1:0,x2:250,y2:265,stroke:'#7a9cc0','stroke-width':4}));
+svg.appendChild(mk('line',{x1:625,y1:0,x2:625,y2:260,stroke:'#7a9cc0','stroke-width':4}));
+
+// Flag plaza (dashed, outdoor)
+svg.appendChild(mk('rect',{x:870,y:262,width:55,height:32,fill:'none',stroke:'#3d4a5c','stroke-width':1.5,rx:4,'stroke-dasharray':'5,3'}));
+
+// ── CONTEXT ROOMS ──
+CTX.forEach(function(r){
+  var g=mk('g',{});
+  g.appendChild(mk('rect',{x:r[1],y:r[2],width:r[3],height:r[4],fill:C._.f,stroke:C._.s,'stroke-width':.8,rx:1}));
+  var t=mk('text',{x:r[1]+r[3]/2,y:r[2]+r[4]/2,class:'cl','font-size':r[3]<45?'5':'6'});
+  t.textContent=r[0];g.appendChild(t);svg.appendChild(g);
+});
+
+// ── NAMING ROOMS ──
+R.forEach(function(r){
+  var nm=r[0],tp=r[1],pr=r[2],x=r[3],y=r[4],w=r[5],h=r[6];
+  var c=C[tp];var g=mk('g',{class:'room'});
+  g.appendChild(mk('rect',{x:x,y:y,width:w,height:h,fill:c.f,stroke:c.s,'stroke-width':1.5,rx:1}));
+  var cx=x+w/2,cy=y+h/2;
+  var vert=h>w*2.5,hall=w>h*5;
+  var sn=nm.replace('Apparatus ','').replace(' Room','')
+    .replace('Kitchen (West)','Kitchen W').replace('Kitchen 2','Kitchen 2')
+    .replace('Oxygen ','O\u2082 ').replace('Mechanical','Mech.')
+    .replace('Office Supply','Office Sup.').replace('Daily Supply ','D.Supply ');
+  var sp=pr.replace('$','').replace(',000','K');
+
+  if(vert){
+    var tg=mk('g',{transform:'translate('+cx+','+cy+') rotate(-90)'});
+    var t1=mk('text',{x:0,y:-4,class:'rl','font-size':'7'});t1.textContent=sn;
+    var t2=mk('text',{x:0,y:7,class:'rp','font-size':'5.5'});t2.textContent='$'+sp;
+    tg.appendChild(t1);tg.appendChild(t2);g.appendChild(tg);
+  }else if(hall){
+    var t=mk('text',{x:cx,y:cy,class:'rl','font-size':'5.5'});
+    t.textContent=sn+' \u2014 $'+sp;g.appendChild(t);
+  }else{
+    var fs=w<42?5.5:w<55?6:w<80?7:8.5;
+    var ps=fs-1;var gap=fs*.65;
+    var t1=mk('text',{x:cx,y:cy-gap,class:'rl','font-size':fs});t1.textContent=sn;
+    var t2=mk('text',{x:cx,y:cy+gap+1,class:'rp','font-size':ps});t2.textContent='$'+sp;
+    g.appendChild(t1);g.appendChild(t2);
+  }
+  g.onclick=function(){
+    document.getElementById('tn').textContent=nm;
+    document.getElementById('ty').textContent=tp;
+    document.getElementById('tp').textContent=pr;
+    document.getElementById('tt').style.display='block';
+  };
+  svg.appendChild(g);
+});
+
+// ── SECTION LABELS ──
+[['R E S I D E N T I A L',125,275],['A P P A R A T U S   B A Y',437,275],['A D M I N  /  O P S',778,275]].forEach(function(l){
+  var t=mk('text',{x:l[1],y:l[2],fill:'#2d3748','font-family':'Georgia,serif','font-weight':'bold','text-anchor':'middle','dominant-baseline':'central','font-size':'7','letter-spacing':'1.5'});
+  t.textContent=l[0];svg.appendChild(t);
+});
+
+// Entrance marker
+var ea=mk('text',{x:900,y:258,fill:'#4b5563','font-size':'5','text-anchor':'middle','font-family':'Inter,system-ui'});
+ea.textContent='\u25B2 ENTRANCE';svg.appendChild(ea);
+</script>
+</body>
+</html>
