@@ -37,7 +37,7 @@ svg{width:100%;height:auto;display:block;min-width:900px}
   <span><i style="background:rgba(108,52,131,.5);border-color:#6c3483"></i>Common Area</span>
   <span><i style="background:rgba(93,78,96,.5);border-color:#5d4e60"></i>Utility / Storage</span>
 </div>
-<div class="st"><span style="color:#d4a44a">40</span> rooms · <span style="color:#d4a44a">$1.5M</span> in naming rights · <span style="color:#d4a44a">$2M</span> campaign goal</div>
+<div class="st"><span style="color:#d4a44a">40</span> rooms · <span style="color:#d4a44a">$1.5M</span> room naming rights + <span style="color:#d4a44a">$500K</span> building naming rights = <span style="color:#d4a44a">$2M</span> campaign goal</div>
 <div id="tt" onclick="this.style.display='none'">
   <h3 id="tn"></h3><div class="tp" id="ty"></div><div class="pr" id="tp"></div><div class="dm">Click to dismiss</div>
 </div>
@@ -160,8 +160,19 @@ svg.appendChild(mk('rect',{x:0,y:0,width:250,height:260,fill:'rgba(30,42,65,0.7)
 svg.appendChild(mk('rect',{x:250,y:0,width:375,height:260,fill:'rgba(30,42,65,0.7)',stroke:'none'}));
 svg.appendChild(mk('rect',{x:625,y:0,width:305,height:260,fill:'rgba(30,42,65,0.7)',stroke:'none'}));
 
-// ── BUILDING OUTLINE ──
-svg.appendChild(mk('rect',{x:0,y:0,width:930,height:260,fill:'none',stroke:'#7a9cc0','stroke-width':3,rx:1}));
+// ── BUILDING OUTLINE (clickable — Building Naming Rights $500K) ──
+// Invisible fat hit area for easier clicking
+var bldgHit=mk('rect',{x:-6,y:-6,width:942,height:272,fill:'none',stroke:'transparent','stroke-width':16,rx:1,style:'cursor:pointer;pointer-events:stroke'});
+bldgHit.onclick=function(){
+  document.getElementById('tn').textContent='Building Naming Rights';
+  document.getElementById('ty').textContent='Entire Building';
+  document.getElementById('tp').textContent='$500,000';
+  document.getElementById('tt').style.display='block';
+};
+svg.appendChild(bldgHit);
+// Visible outline
+var bldgOutline=mk('rect',{x:0,y:0,width:930,height:260,fill:'none',stroke:'#7a9cc0','stroke-width':8,rx:1,style:'pointer-events:none'});
+svg.appendChild(bldgOutline);
 
 // Internal section dividers
 svg.appendChild(mk('line',{x1:250,y1:0,x2:250,y2:260,stroke:'#7a9cc0','stroke-width':3}));
@@ -238,8 +249,8 @@ R.forEach(function(r){
 });
 
 // ── SECTION LABELS ──
-[['R E S I D E N T I A L',125,275],['A P P A R A T U S   B A Y',437,275],['A D M I N  /  O P S',778,275]].forEach(function(l){
-  var t=mk('text',{x:l[1],y:l[2],fill:'#2d3748','font-family':'Georgia,serif','font-weight':'bold','text-anchor':'middle','dominant-baseline':'central','font-size':'7','letter-spacing':'1.5'});
+[['L I V I N G   Q U A R T E R S',125,275],['A P P A R A T U S   B A Y',437,275],['A D M I N  /  O P S',778,275]].forEach(function(l){
+  var t=mk('text',{x:l[1],y:l[2],fill:'#9ca3af','font-family':'Georgia,serif','font-weight':'bold','text-anchor':'middle','dominant-baseline':'central','font-size':'9','letter-spacing':'2'});
   t.textContent=l[0];svg.appendChild(t);
 });
 
