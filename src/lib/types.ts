@@ -9,8 +9,8 @@ export type RoomStatus = "available" | DonationStatus;
 export interface RoomCoordinates {
   x: number;
   y: number;
-  width: number;
-  height: number;
+  w: number;
+  h: number;
 }
 
 export interface Room {

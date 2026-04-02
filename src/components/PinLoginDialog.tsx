@@ -48,6 +48,7 @@ export function PinLoginDialog({ isOpen, onClose, onSubmit }: PinLoginDialogProp
   const handleClear = () => {
     setDigits("");
     setError(false);
+    setIsSubmitting(false);
   };
 
   const handleClose = () => {
