@@ -50,8 +50,8 @@ function shortenName(name: string): string {
 
 function shortenPrice(price: number): string {
   const dollars = price / 100;
-  if (dollars >= 1000) return `$${dollars / 1000}K`;
-  return `$${dollars}`;
+  if (dollars >= 1000) return `${dollars / 1000}K`;
+  return `${dollars}`;
 }
 
 export function BlueprintCanvas({
