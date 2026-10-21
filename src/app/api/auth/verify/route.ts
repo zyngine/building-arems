@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SignJWT } from "jose";
-import { getJwtSecret } from "@/lib/auth";
+import { getJwtSecret, getSessionCookieOptions, SESSION_COOKIE } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,12 +17,9 @@ export async function POST(request: NextRequest) {
       .sign(getJwtSecret());
 
     const response = NextResponse.json({ success: true });
-    response.cookies.set("admin_session", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+    response.cookies.set(SESSION_COOKIE, token, {
+      ...getSessionCookieOptions(),
       maxAge: 60 * 60 * 12,
-      path: "/",
     });
 
     return response;
