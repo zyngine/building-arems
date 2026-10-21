@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { formatCurrency } from "@/lib/utils";
+import { adminFetch } from "@/lib/adminAuth";
 import { useToast } from "./Toast";
 
 interface AdjustTotalDialogProps {
@@ -42,7 +43,7 @@ export function AdjustTotalDialog({
 
     setIsSaving(true);
     try {
-      const res = await fetch("/api/campaign", {
+      const res = await adminFetch("/api/campaign", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

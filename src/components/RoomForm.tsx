@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { RoomWithDonation, DonationStatus, PaymentMethod } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
+import { adminFetch } from "@/lib/adminAuth";
 import { useToast } from "./Toast";
 
 interface RoomFormProps {
@@ -65,7 +66,7 @@ export function RoomForm({ room, onClose }: RoomFormProps) {
         internal_notes: notes.trim() || null,
       };
 
-      const res = await fetch("/api/donations", {
+      const res = await adminFetch("/api/donations", {
         method: d ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -92,7 +93,7 @@ export function RoomForm({ room, onClose }: RoomFormProps) {
 
     setIsSaving(true);
     try {
-      const res = await fetch(`/api/donations?id=${d.id}`, {
+      const res = await adminFetch(`/api/donations?id=${d.id}`, {
         method: "DELETE",
       });
 

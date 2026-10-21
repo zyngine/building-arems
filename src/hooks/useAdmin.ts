@@ -1,13 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { setAdminToken, clearAdminToken, adminFetch } from "@/lib/adminAuth";
 
 export function useAdmin() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/auth/check")
+    // Validate an existing session (bearer token if we have one, else cookie).
+    adminFetch("/api/auth/check")
       .then((res) => res.json())
       .then((data) => setIsAdmin(data.isAdmin))
       .catch(() => setIsAdmin(false))
@@ -23,6 +25,8 @@ export function useAdmin() {
       });
 
       if (res.ok) {
+        const data = await res.json();
+        if (data.token) setAdminToken(data.token);
         setIsAdmin(true);
         return true;
       }
@@ -33,7 +37,8 @@ export function useAdmin() {
   };
 
   const logout = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
+    await adminFetch("/api/auth/logout", { method: "POST" });
+    clearAdminToken();
     setIsAdmin(false);
   };
 

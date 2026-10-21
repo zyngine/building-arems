@@ -16,7 +16,10 @@ export async function POST(request: NextRequest) {
       .setExpirationTime("12h")
       .sign(getJwtSecret());
 
-    const response = NextResponse.json({ success: true });
+    // Return the token so the client can send it as a bearer header on admin
+    // writes (reliable inside cross-site iframes). The cookie is still set for
+    // direct, non-embedded use.
+    const response = NextResponse.json({ success: true, token });
     response.cookies.set(SESSION_COOKIE, token, {
       ...getSessionCookieOptions(),
       maxAge: 60 * 60 * 12,
