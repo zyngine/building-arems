@@ -9,23 +9,33 @@
 
 const TOKEN_KEY = "arems_admin_token";
 
+// Kept in memory as the primary source so the token survives even when
+// localStorage is blocked in the embedded iframe (Safari/Chrome storage
+// partitioning). localStorage is a best-effort persistence layer on top, so
+// the session can survive a reload where storage is allowed.
+let memoryToken: string | null = null;
+
 export function getAdminToken(): string | null {
+  if (memoryToken) return memoryToken;
   try {
-    return localStorage.getItem(TOKEN_KEY);
+    memoryToken = localStorage.getItem(TOKEN_KEY);
+    return memoryToken;
   } catch {
     return null;
   }
 }
 
 export function setAdminToken(token: string): void {
+  memoryToken = token;
   try {
     localStorage.setItem(TOKEN_KEY, token);
   } catch {
-    // localStorage unavailable (e.g. blocked) — cookie fallback still applies.
+    // localStorage unavailable (e.g. blocked) — in-memory token still applies.
   }
 }
 
 export function clearAdminToken(): void {
+  memoryToken = null;
   try {
     localStorage.removeItem(TOKEN_KEY);
   } catch {
