@@ -13,6 +13,7 @@ interface CampaignStatsProps {
   isAdmin: boolean;
   onAdminClick: () => void;
   onLogout: () => void;
+  onEditTotal: () => void;
 }
 
 export function CampaignStats({
@@ -26,6 +27,7 @@ export function CampaignStats({
   isAdmin,
   onAdminClick,
   onLogout,
+  onEditTotal,
 }: CampaignStatsProps) {
   return (
     <div>
@@ -34,11 +36,21 @@ export function CampaignStats({
           <span className="text-gold font-serif text-lg font-bold">
             {campaignName}
           </span>
-          <span className="text-gray-400 text-sm">
+          <span className="text-gray-400 text-sm flex items-center gap-1.5">
             Total Raised:{" "}
             <span className="text-green-400 font-bold">
               {formatCurrency(totalRaised)}
             </span>
+            {isAdmin && (
+              <button
+                onClick={onEditTotal}
+                title="Adjust total raised"
+                aria-label="Adjust total raised"
+                className="text-gray-500 hover:text-gold transition-colors text-xs border border-border rounded px-1.5 py-0.5"
+              >
+                Edit
+              </button>
+            )}
           </span>
           {goal > 0 && (
             <span className="text-gray-400 text-sm">
