@@ -29,7 +29,14 @@ export function getJwtSecret(): Uint8Array {
 }
 
 export async function verifyAdminRequest(request: NextRequest): Promise<boolean> {
-  const token = request.cookies.get(SESSION_COOKIE)?.value;
+  // Prefer the Authorization header (works in cross-site iframes where cookies
+  // are blocked); fall back to the session cookie for direct, non-embedded use.
+  const authHeader = request.headers.get("authorization");
+  const bearer =
+    authHeader && authHeader.toLowerCase().startsWith("bearer ")
+      ? authHeader.slice(7).trim()
+      : null;
+  const token = bearer || request.cookies.get(SESSION_COOKIE)?.value;
   if (!token) return false;
 
   try {
