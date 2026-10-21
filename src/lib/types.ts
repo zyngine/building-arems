@@ -46,6 +46,7 @@ export interface CampaignSettings {
   id: string;
   campaign_name: string;
   campaign_goal: number | null;
+  manual_adjustment: number;
   is_active: boolean;
   updated_at: string;
 }

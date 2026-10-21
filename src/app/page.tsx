@@ -10,6 +10,7 @@ import { StatusFilter } from "@/components/StatusFilter";
 import { BlueprintCanvas } from "@/components/BlueprintCanvas";
 import { RoomModal } from "@/components/RoomModal";
 import { PinLoginDialog } from "@/components/PinLoginDialog";
+import { AdjustTotalDialog } from "@/components/AdjustTotalDialog";
 
 type FilterValue = "all" | RoomStatus;
 
@@ -21,6 +22,7 @@ export default function Home() {
   const [filter, setFilter] = useState<FilterValue>("all");
   const [selectedRoom, setSelectedRoom] = useState<RoomWithDonation | null>(null);
   const [showPinDialog, setShowPinDialog] = useState(false);
+  const [showAdjustDialog, setShowAdjustDialog] = useState(false);
 
   const dimmedFilter = (room: RoomWithDonation): boolean => {
     if (filter === "all") return false;
@@ -49,6 +51,7 @@ export default function Home() {
         isAdmin={isAdmin}
         onAdminClick={() => setShowPinDialog(true)}
         onLogout={logout}
+        onEditTotal={() => setShowAdjustDialog(true)}
       />
 
       <StatusFilter active={filter} onChange={setFilter} />
@@ -69,6 +72,15 @@ export default function Home() {
         isOpen={showPinDialog}
         onClose={() => setShowPinDialog(false)}
         onSubmit={login}
+      />
+
+      <AdjustTotalDialog
+        isOpen={showAdjustDialog}
+        onClose={() => setShowAdjustDialog(false)}
+        roomsRaised={stats.roomsRaised}
+        currentAdjustment={stats.manualAdjustment}
+        settingsId={stats.settingsId}
+        onSaved={stats.applyManualAdjustment}
       />
     </div>
   );
