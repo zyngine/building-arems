@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { RoomWithDonation, RoomStatus, RoomType } from "@/lib/types";
-import { getRoomColor, formatCurrency } from "@/lib/utils";
+import { CONTACT_EMAIL, contactMailto } from "@/lib/constants";
 
 interface BlueprintCanvasProps {
   rooms: RoomWithDonation[];
@@ -22,8 +22,8 @@ const TYPE_COLORS: Record<RoomType | "_", { f: string; s: string }> = {
 
 const STATUS_FILL: Record<RoomStatus, { f: string; s: string }> = {
   available: { f: "", s: "" },
-  pledged: { f: "rgba(125,90,11,0.5)", s: "#7d5a0b" },
-  sold: { f: "rgba(14,107,58,0.5)", s: "#0e6b3a" },
+  pledged: { f: "rgba(212,164,74,0.3)", s: "#d4a44a" },
+  sold: { f: "rgba(16,185,129,0.3)", s: "#34d399" },
 };
 
 const CTX_ROOMS = [
@@ -103,7 +103,7 @@ function FloorPlanSVG({
   minWidth?: string;
 }) {
   return (
-    <svg viewBox={viewBox} className={`w-full h-auto block ${minWidth ? `min-w-[${minWidth}]` : ""}`}
+    <svg viewBox={viewBox} className="w-full h-auto block"
       style={minWidth ? { minWidth } : undefined}>
       {/* Building fill */}
       {(showStructure === "all" || showStructure === "living") && (
@@ -305,21 +305,33 @@ export function BlueprintCanvas({
   // Desktop: full plan
   if (!isMobile) {
     return (
-      <div className="flex-1 p-4 sm:p-5 overflow-auto">
-        <div className="w-full max-w-[1500px] mx-auto bg-[#111827] rounded-xl border border-[#1f2937] p-6 overflow-x-auto">
-          <FloorPlanSVG
-            viewBox="-4 -4 948 300"
-            rooms={rooms}
-            ctxRooms={CTX_ROOMS}
-            dimmedFilter={dimmedFilter}
-            onRoomClick={onRoomClick}
-            onBuildingClick={handleBuildingClick}
-            showStructure="all"
-            minWidth="900px"
-          />
+      <div className="flex-1 px-4 sm:px-6 py-5 overflow-auto">
+        <div className="w-full max-w-[1500px] mx-auto">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+            <p className="text-gray-400 text-sm">
+              Select any space on the floor plan to view its naming opportunity.
+            </p>
+            <BuildingButton onClick={handleBuildingClick} />
+          </div>
+
+          <div className="rounded-xl border border-border overflow-hidden">
+            <div className="blueprint-grid p-3 lg:p-6 overflow-x-auto">
+              <FloorPlanSVG
+                viewBox="-4 -4 948 300"
+                rooms={rooms}
+                ctxRooms={CTX_ROOMS}
+                dimmedFilter={dimmedFilter}
+                onRoomClick={onRoomClick}
+                onBuildingClick={handleBuildingClick}
+                showStructure="all"
+                minWidth="680px"
+              />
+            </div>
+            <Legend />
+          </div>
+
+          <Footer />
         </div>
-        <Legend />
-        <Stats />
       </div>
     );
   }
@@ -343,10 +355,10 @@ export function BlueprintCanvas({
           <button
             key={section.id}
             onClick={() => setActiveSection(activeSection === section.id ? "all" : section.id)}
-            className={`flex-1 py-3 px-2 rounded-lg text-sm font-serif font-bold transition-all ${
+            className={`flex-1 py-3 px-2 rounded-lg text-sm font-serif font-bold border transition-colors ${
               activeSection === section.id
-                ? "bg-[#d4a44a] text-[#0a0f1a]"
-                : "bg-[#1f2937] text-gray-300 border border-[#374151]"
+                ? "bg-gold border-gold text-background"
+                : "bg-surface text-gray-200 border-border"
             }`}
           >
             {section.label}
@@ -354,16 +366,15 @@ export function BlueprintCanvas({
         ))}
       </div>
 
-      {/* Building naming rights button (mobile) */}
-      <button
-        onClick={handleBuildingClick}
-        className="w-full mb-3 py-2 px-3 rounded-lg bg-[#111827] border-2 border-[#7a9cc0] text-sm text-[#d4a44a] font-serif font-bold"
-      >
-        Building Naming Rights — $500,000
-      </button>
+      <BuildingButton onClick={handleBuildingClick} fullWidth />
+
+      <p className="text-gray-400 text-xs text-center my-3">
+        Pick a section to zoom in, then tap a space for details.
+      </p>
 
       {/* Zoomed section or full overview */}
-      <div className="w-full bg-[#111827] rounded-xl border border-[#1f2937] p-3">
+      <div className="rounded-xl border border-border overflow-hidden">
+        <div className="blueprint-grid p-3">
         {currentSection ? (
           <FloorPlanSVG
             viewBox={currentSection.viewBox}
@@ -385,17 +396,30 @@ export function BlueprintCanvas({
             showStructure="all"
           />
         )}
+        </div>
+        <Legend />
       </div>
 
-      <Legend />
-      <Stats />
+      <Footer />
     </div>
+  );
+}
+
+function BuildingButton({ onClick, fullWidth }: { onClick: () => void; fullWidth?: boolean }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`${fullWidth ? "w-full justify-center" : ""} inline-flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-lg border border-gold/40 bg-gold/10 px-4 py-2 text-sm text-gold font-serif font-bold hover:bg-gold/20 transition-colors`}
+    >
+      Building Naming Rights
+      <span className="font-sans font-semibold tabular-nums">$500,000</span>
+    </button>
   );
 }
 
 function Legend() {
   return (
-    <div className="flex flex-wrap gap-3.5 justify-center mt-3.5">
+    <div className="bg-surface border-t border-border px-4 py-3 flex flex-wrap gap-x-4 gap-y-2 justify-center">
       {([
         ["Apparatus Bay", "bay"],
         ["Bunk Room", "bedroom"],
@@ -403,23 +427,41 @@ function Legend() {
         ["Common Area", "common"],
         ["Utility / Storage", "utility"],
       ] as [string, RoomType][]).map(([label, type]) => (
-        <span key={type} className="flex items-center gap-1.5 text-xs text-gray-400">
-          <i className="w-3.5 h-3.5 rounded-sm border-2 inline-block"
-            style={{ background: TYPE_COLORS[type].f, borderColor: TYPE_COLORS[type].s }} />
-          {label}
-        </span>
+        <LegendItem key={type} label={label} colors={TYPE_COLORS[type]} />
       ))}
+      <span className="hidden sm:block w-px self-stretch bg-border" />
+      <LegendItem label="Pledged" colors={STATUS_FILL.pledged} />
+      <LegendItem label="Sold" colors={STATUS_FILL.sold} />
     </div>
   );
 }
 
-function Stats() {
+function LegendItem({ label, colors }: { label: string; colors: { f: string; s: string } }) {
   return (
-    <div className="text-center text-gray-500 text-xs mt-1.5">
-      <span className="text-[#d4a44a]">40</span> rooms &middot;{" "}
-      <span className="text-[#d4a44a]">$1.5M</span> room naming rights +{" "}
-      <span className="text-[#d4a44a]">$500K</span> building naming rights ={" "}
-      <span className="text-[#d4a44a]">$2M</span> campaign goal
+    <span className="flex items-center gap-1.5 text-xs text-gray-300">
+      <i className="w-3.5 h-3.5 rounded-sm border-2 inline-block"
+        style={{ background: colors.f, borderColor: colors.s }} />
+      {label}
+    </span>
+  );
+}
+
+function Footer() {
+  return (
+    <div className="mt-4 text-center space-y-1.5">
+      <p className="text-gray-300 text-sm">
+        Interested in naming a space? Contact campaign leadership at{" "}
+        <a href={contactMailto("Naming rights inquiry")}
+          className="text-gold font-semibold hover:underline whitespace-nowrap">
+          {CONTACT_EMAIL}
+        </a>
+      </p>
+      <p className="text-gray-500 text-xs">
+        <span className="text-gold">40</span> rooms &middot;{" "}
+        <span className="text-gold">$1.5M</span> room naming rights +{" "}
+        <span className="text-gold">$500K</span> building naming rights ={" "}
+        <span className="text-gold">$2M</span> campaign goal
+      </p>
     </div>
   );
 }

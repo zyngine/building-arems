@@ -7,31 +7,49 @@ type FilterValue = "all" | RoomStatus;
 interface StatusFilterProps {
   active: FilterValue;
   onChange: (filter: FilterValue) => void;
+  counts: Record<FilterValue, number>;
 }
 
-const FILTERS: { value: FilterValue; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "available", label: "Available" },
-  { value: "pledged", label: "Pledged" },
-  { value: "sold", label: "Sold" },
+const FILTERS: { value: FilterValue; label: string; dot?: string }[] = [
+  { value: "all", label: "All Spaces" },
+  { value: "available", label: "Available", dot: "#5dade2" },
+  { value: "pledged", label: "Pledged", dot: "#f0c040" },
+  { value: "sold", label: "Sold", dot: "#58d68d" },
 ];
 
-export function StatusFilter({ active, onChange }: StatusFilterProps) {
+export function StatusFilter({ active, onChange, counts }: StatusFilterProps) {
   return (
-    <div className="px-5 py-2 flex gap-2 bg-[#0d1117] border-b border-border overflow-x-auto">
-      {FILTERS.map((f) => (
-        <button
-          key={f.value}
-          onClick={() => onChange(f.value)}
-          className={`px-3 py-1 rounded text-xs font-medium transition-colors whitespace-nowrap ${
-            active === f.value
-              ? "bg-border text-white"
-              : "bg-transparent text-gray-500 border border-border hover:text-gray-300"
-          }`}
-        >
-          {f.label}
-        </button>
-      ))}
+    <div className="bg-[#0d1117] border-b border-border">
+      <div className="max-w-[1500px] mx-auto px-4 sm:px-6 py-2.5 flex gap-2 overflow-x-auto no-scrollbar">
+        {FILTERS.map((f) => {
+          const isActive = active === f.value;
+          return (
+            <button
+              key={f.value}
+              onClick={() => onChange(f.value)}
+              aria-pressed={isActive}
+              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors whitespace-nowrap ${
+                isActive
+                  ? "bg-white/10 border-white/25 text-white"
+                  : "bg-transparent border-border text-gray-400 hover:text-gray-200 hover:border-gray-600"
+              }`}
+            >
+              {f.dot && (
+                <span
+                  className="w-2 h-2 rounded-full inline-block"
+                  style={{ backgroundColor: f.dot }}
+                />
+              )}
+              {f.label}
+              <span
+                className={`tabular-nums ${isActive ? "text-gray-300" : "text-gray-500"}`}
+              >
+                {counts[f.value]}
+              </span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
