@@ -112,6 +112,58 @@ function pickLabel(candidates: string[], base: number, avail: number, minScale =
   return { text, size: fitSize(text, base, avail, 0) ?? base };
 }
 
+// Split at the space that leaves the two lines closest in length, without
+// stranding a joining word ("&", "and") at the end of the first line.
+function wrapTwoLines(text: string): [string, string] | null {
+  let best: [string, string] | null = null;
+  let bestScore = Infinity;
+  for (let i = text.indexOf(" "); i !== -1; i = text.indexOf(" ", i + 1)) {
+    const pair: [string, string] = [text.slice(0, i), text.slice(i + 1)];
+    const dangling = /(^|\s)(&|and)$/i.test(pair[0]);
+    const score = Math.max(pair[0].length, pair[1].length) + (dangling ? 4 : 0);
+    if (score < bestScore) {
+      best = pair;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
+// Lines to show under the room name for a pledged/sold room. The donor's name
+// takes priority over the status word (colour already conveys status): it is
+// wrapped onto two lines, then shrunk, before falling back to the status alone.
+function donorLines(
+  statusText: string,
+  donor: string | undefined,
+  base: number,
+  availWidth: number,
+  availHeight: number
+): { lines: string[]; size: number } {
+  const statusOnly = { lines: [statusText], size: fitSize(statusText, base, availWidth, 0) ?? base };
+  if (!donor) return statusOnly;
+
+  const wrapped = wrapTwoLines(donor);
+  const twoLinesAt = (minScale: number) => {
+    if (!wrapped) return null;
+    const longer = wrapped[0].length >= wrapped[1].length ? wrapped[0] : wrapped[1];
+    const size = fitSize(longer, base, availWidth, minScale);
+    return size && size * 2 + 1 <= availHeight ? { lines: [...wrapped], size } : null;
+  };
+  const oneLineAt = (text: string, minScale: number) => {
+    const size = fitSize(text, base, availWidth, minScale);
+    return size ? { lines: [text], size } : null;
+  };
+
+  return (
+    oneLineAt(`${statusText} · ${donor}`, 0.9) ??
+    oneLineAt(donor, 0.9) ??
+    twoLinesAt(0.9) ??
+    oneLineAt(donor, 0.6) ??
+    twoLinesAt(0.6) ??
+    statusOnly
+  );
+}
+
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
@@ -171,7 +223,7 @@ function RoomLabel({ room, status }: { room: RoomWithDonation; status: RoomStatu
   const avail = (isVert ? h : w) - 2 * ROOM_GAP - 4;
 
   if (isHall) {
-    const tail = status === "available" ? [price] : donor ? [`${statusText} · ${donor}`, statusText] : [statusText];
+    const tail = status === "available" ? [price] : donor ? [`${statusText} · ${donor}`, donor, statusText] : [statusText];
     const label = pickLabel(tail.map((t) => `${name} — ${t}`), 5.5, avail);
     return <PlanText x={cx} y={cy} size={label.size} fill="#e2e8f0" weight={600}>{label.text}</PlanText>;
   }
@@ -179,27 +231,33 @@ function RoomLabel({ room, status }: { room: RoomWithDonation; status: RoomStatu
   const nameBase = w < 42 ? 5.5 : w < 55 ? 6 : w < 80 ? 7 : 8.5;
   const subBase = w < 42 ? 4.5 : w < 55 ? 5 : w < 80 ? 6 : 7.5;
   const nameLabel = pickLabel([name], nameBase, avail);
-  const subLabel = pickLabel(
-    status === "available" ? [price] : donor ? [`${statusText} · ${donor}`, donor, statusText] : [statusText],
-    subBase,
-    avail,
-    0.9
-  );
+  const LINE_GAP = 1;
+  const NAME_GAP = 2;
+  const availHeight = (isVert ? w : h) - 2 * ROOM_GAP - 3 - nameLabel.size - NAME_GAP;
+  const sub =
+    status === "available"
+      ? { lines: [price], size: fitSize(price, subBase, avail, 0) ?? subBase }
+      : donorLines(statusText, donor, subBase, avail, availHeight);
 
-  // Two lines centred as a block on the room's centre
-  const block = nameLabel.size + 2 + subLabel.size;
+  // Name plus sub-lines, centred as one block on the room's centre. Offsets
+  // run down the page, or across it for rooms labelled vertically.
+  const subHeight = sub.lines.length * sub.size + (sub.lines.length - 1) * LINE_GAP;
+  const block = nameLabel.size + NAME_GAP + subHeight;
   const nameOffset = -block / 2 + nameLabel.size / 2;
-  const subOffset = block / 2 - subLabel.size / 2;
+  const subStart = -block / 2 + nameLabel.size + NAME_GAP + sub.size / 2;
+  const at = (offset: number) => (isVert ? { x: cx + offset, y: cy } : { x: cx, y: cy + offset });
 
-  return isVert ? (
+  return (
     <>
-      <PlanText x={cx + nameOffset} y={cy} size={nameLabel.size} fill="#e2e8f0" weight={600} rotate>{nameLabel.text}</PlanText>
-      <PlanText x={cx + subOffset} y={cy} size={subLabel.size} fill={subColor} weight={500} rotate>{subLabel.text}</PlanText>
-    </>
-  ) : (
-    <>
-      <PlanText x={cx} y={cy + nameOffset} size={nameLabel.size} fill="#e2e8f0" weight={600}>{nameLabel.text}</PlanText>
-      <PlanText x={cx} y={cy + subOffset} size={subLabel.size} fill={subColor} weight={500}>{subLabel.text}</PlanText>
+      <PlanText {...at(nameOffset)} size={nameLabel.size} fill="#e2e8f0" weight={600} rotate={isVert}>
+        {nameLabel.text}
+      </PlanText>
+      {sub.lines.map((line, i) => (
+        <PlanText key={i} {...at(subStart + i * (sub.size + LINE_GAP))} size={sub.size}
+          fill={subColor} weight={500} rotate={isVert}>
+          {line}
+        </PlanText>
+      ))}
     </>
   );
 }
