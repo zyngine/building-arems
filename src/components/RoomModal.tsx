@@ -25,7 +25,7 @@ export function RoomModal({ room, isAdmin, onClose }: RoomModalProps) {
       onClick={onClose}
     >
       <div
-        className="bg-surface rounded-t-xl sm:rounded-xl w-full sm:max-w-md mx-0 sm:mx-4 max-h-[90vh] overflow-hidden animate-slide-up"
+        className="bg-surface border border-border shadow-2xl rounded-t-xl sm:rounded-xl w-full sm:max-w-md mx-0 sm:mx-4 max-h-[90vh] overflow-hidden animate-slide-up"
         onClick={(e) => e.stopPropagation()}
       >
         <div
@@ -34,8 +34,8 @@ export function RoomModal({ room, isAdmin, onClose }: RoomModalProps) {
             background: `linear-gradient(180deg, ${color} 0%, #111827 100%)`,
           }}
         >
-          <div className="flex items-start justify-between">
-            <div>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
               <h2 className="text-white font-serif text-xl font-bold">
                 {room.name}
               </h2>
@@ -45,7 +45,16 @@ export function RoomModal({ room, isAdmin, onClose }: RoomModalProps) {
                 </p>
               )}
             </div>
-            <StatusBadge status={status} />
+            <div className="flex items-center gap-2 shrink-0">
+              <StatusBadge status={status} />
+              <button
+                onClick={onClose}
+                aria-label="Close"
+                className="w-7 h-7 flex items-center justify-center rounded-full text-gray-300 text-lg leading-none hover:bg-white/10 hover:text-white transition-colors"
+              >
+                &times;
+              </button>
+            </div>
           </div>
         </div>
 

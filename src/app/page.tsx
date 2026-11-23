@@ -32,8 +32,9 @@ export default function Home() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-gray-500">Loading...</div>
+      <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-background">
+        <div className="w-7 h-7 rounded-full border-2 border-border border-t-gold animate-spin" />
+        <div className="text-gray-400 text-sm">Loading floor plan…</div>
       </div>
     );
   }
@@ -45,16 +46,22 @@ export default function Home() {
         totalRaised={stats.totalRaised}
         goal={stats.goal}
         progress={stats.progress}
-        available={stats.available}
-        pledged={stats.pledged}
-        sold={stats.sold}
         isAdmin={isAdmin}
         onAdminClick={() => setShowPinDialog(true)}
         onLogout={logout}
         onEditTotal={() => setShowAdjustDialog(true)}
       />
 
-      <StatusFilter active={filter} onChange={setFilter} />
+      <StatusFilter
+        active={filter}
+        onChange={setFilter}
+        counts={{
+          all: stats.available + stats.pledged + stats.sold,
+          available: stats.available,
+          pledged: stats.pledged,
+          sold: stats.sold,
+        }}
+      />
 
       <BlueprintCanvas
         rooms={rooms}
