@@ -45,6 +45,7 @@ export function RoomInfoDisplay({ room }: RoomInfoDisplayProps) {
             </p>
             <a
               href={contactMailto(`Naming rights inquiry: ${room.name}`)}
+              title={`Email ${CONTACT_EMAIL}`}
               className="mt-4 inline-flex items-center gap-2 px-4 py-2.5 rounded-md border border-gold/40 bg-gold/10 text-gold text-sm font-semibold hover:bg-gold/20 transition-colors"
             >
               <svg
@@ -61,7 +62,7 @@ export function RoomInfoDisplay({ room }: RoomInfoDisplayProps) {
                 <rect x="3" y="5" width="18" height="14" rx="2" />
                 <path d="m3 7 9 6 9-6" />
               </svg>
-              {CONTACT_EMAIL}
+              Campaign Contact
             </a>
           </>
         )}
