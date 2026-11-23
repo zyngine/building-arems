@@ -39,10 +39,41 @@ const CTX_ROOMS = [
 
 type Section = "all" | "living" | "bay" | "admin";
 
-const SECTIONS: { id: Section; label: string; viewBox: string; xMin: number; xMax: number }[] = [
-  { id: "living", label: "Living Quarters", viewBox: "-4 -4 268 300", xMin: 0, xMax: 250 },
-  { id: "bay", label: "Apparatus Bay", viewBox: "246 -4 383 300", xMin: 250, xMax: 625 },
-  { id: "admin", label: "Admin / Ops", viewBox: "621 -4 323 310", xMin: 625, xMax: 940 },
+// The building occupies x 0..930, y 0..260 in plan units. Everything is drawn
+// so that nothing crosses the outer wall: rooms are inset by ROOM_GAP on each
+// side (leaving an even gutter between neighbours) and the wall is stroked
+// entirely outside the building footprint.
+const BUILDING_H = 260;
+const WALL_T = 4;
+const ROOM_GAP = 1;
+const WALL_COLOR = "#7a9cc0";
+const FLOOR_COLOR = "#172238";
+const DOOR_COLOR = "#2c3f5e";
+const FONT = "Inter,system-ui,sans-serif";
+
+interface PlanView {
+  x0: number;
+  x1: number;
+  viewBox: string;
+  full: boolean;
+}
+
+const FULL_VIEW: PlanView = { x0: 0, x1: 930, viewBox: "-6 -6 942 304", full: true };
+
+const SECTIONS: { id: Exclude<Section, "all">; label: string; view: PlanView }[] = [
+  { id: "living", label: "Living Quarters", view: { x0: 0, x1: 250, viewBox: "-6 -6 262 272", full: false } },
+  { id: "bay", label: "Apparatus Bay", view: { x0: 250, x1: 625, viewBox: "244 -6 387 272", full: false } },
+  { id: "admin", label: "Admin / Ops", view: { x0: 625, x1: 930, viewBox: "619 -6 317 304", full: false } },
+];
+
+// Openings in the outer wall: [x, width]
+const TOP_DOORS: [number, number][] = [[262, 70], [356, 69]];
+const BOTTOM_DOORS: [number, number][] = [[262, 70], [356, 69], [449, 70], [543, 70], [888, 24]];
+
+const SECTION_LABELS: [string, number][] = [
+  ["LIVING QUARTERS", 125],
+  ["APPARATUS BAY", 437.5],
+  ["ADMIN / OPS", 777.5],
 ];
 
 function shortenName(name: string): string {
@@ -50,7 +81,7 @@ function shortenName(name: string): string {
     .replace("Apparatus ", "")
     .replace(" Room", "")
     .replace("Kitchen (West)", "Kitchen W")
-    .replace("Oxygen ", "O\u2082 ")
+    .replace("Oxygen ", "O₂ ")
     .replace("Mechanical", "Mech.")
     .replace("Office Supply", "Office Sup.")
     .replace("Daily Supply ", "D.Supply ");
@@ -60,6 +91,25 @@ function shortenPrice(price: number): string {
   const dollars = price / 100;
   if (dollars >= 1000) return `${dollars / 1000}K`;
   return `${dollars}`;
+}
+
+// Font size at which `text` fits in `avail` plan units, shrinking from `base`
+// by at most `minScale`; null when it would have to shrink further than that.
+function fitSize(text: string, base: number, avail: number, minScale = 0.75): number | null {
+  const needed = text.length * base * 0.58;
+  if (needed <= avail) return base;
+  const scale = avail / needed;
+  return scale >= minScale ? base * scale : null;
+}
+
+// First candidate that fits, else the last one squeezed to its minimum size.
+function pickLabel(candidates: string[], base: number, avail: number, minScale = 0.75): { text: string; size: number } {
+  for (const text of candidates) {
+    const size = fitSize(text, base, avail, minScale);
+    if (size) return { text, size };
+  }
+  const text = candidates[candidates.length - 1];
+  return { text, size: fitSize(text, base, avail, 0) ?? base };
 }
 
 function useIsMobile() {
@@ -73,206 +123,184 @@ function useIsMobile() {
   return isMobile;
 }
 
-function roomInSection(room: { coordinates: { x: number; w: number } }, section: { xMin: number; xMax: number }) {
-  const roomCenter = room.coordinates.x + room.coordinates.w / 2;
-  return roomCenter >= section.xMin && roomCenter < section.xMax;
+function inView(rect: { x: number; w: number }, view: PlanView) {
+  const center = rect.x + rect.w / 2;
+  return center >= view.x0 && center < view.x1;
 }
 
-function ctxInSection(ctx: { x: number; w: number }, section: { xMin: number; xMax: number }) {
-  const center = ctx.x + ctx.w / 2;
-  return center >= section.xMin && center < section.xMax;
+function PlanText({ x, y, size, fill, weight, rotate, children }: {
+  x: number;
+  y: number;
+  size: number;
+  fill: string;
+  weight: number;
+  rotate?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <text x={x} y={y} fill={fill} fontFamily={FONT} fontWeight={weight} fontSize={size}
+      textAnchor="middle" dominantBaseline="central"
+      transform={rotate ? `rotate(-90 ${x} ${y})` : undefined}
+      style={{ pointerEvents: "none" }}>
+      {children}
+    </text>
+  );
+}
+
+// A door reads as a darker panel set into the wall, so the wall outline stays
+// continuous.
+function WallDoor({ x, w, y }: { x: number; w: number; y: number }) {
+  return (
+    <rect x={x} y={y + 0.8} width={w} height={WALL_T - 1.6} rx={0.6}
+      fill={DOOR_COLOR} style={{ pointerEvents: "none" }} />
+  );
+}
+
+function RoomLabel({ room, status }: { room: RoomWithDonation; status: RoomStatus }) {
+  const { x, y, w, h } = room.coordinates;
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+  const name = shortenName(room.name);
+  const price = `$${shortenPrice(room.price)}`;
+  const statusText = status.toUpperCase();
+  const donor = room.donation?.donor_name;
+  const subColor = status === "pledged" ? "#f0c040" : status === "sold" ? "#58d68d" : "#d4a44a";
+
+  const isVert = h > w * 2.5;
+  const isHall = w > h * 5;
+  const avail = (isVert ? h : w) - 2 * ROOM_GAP - 4;
+
+  if (isHall) {
+    const tail = status === "available" ? [price] : donor ? [`${statusText} · ${donor}`, statusText] : [statusText];
+    const label = pickLabel(tail.map((t) => `${name} — ${t}`), 5.5, avail);
+    return <PlanText x={cx} y={cy} size={label.size} fill="#e2e8f0" weight={600}>{label.text}</PlanText>;
+  }
+
+  const nameBase = w < 42 ? 5.5 : w < 55 ? 6 : w < 80 ? 7 : 8.5;
+  const subBase = w < 42 ? 4.5 : w < 55 ? 5 : w < 80 ? 6 : 7.5;
+  const nameLabel = pickLabel([name], nameBase, avail);
+  const subLabel = pickLabel(
+    status === "available" ? [price] : donor ? [`${statusText} · ${donor}`, donor, statusText] : [statusText],
+    subBase,
+    avail,
+    0.9
+  );
+
+  // Two lines centred as a block on the room's centre
+  const block = nameLabel.size + 2 + subLabel.size;
+  const nameOffset = -block / 2 + nameLabel.size / 2;
+  const subOffset = block / 2 - subLabel.size / 2;
+
+  return isVert ? (
+    <>
+      <PlanText x={cx + nameOffset} y={cy} size={nameLabel.size} fill="#e2e8f0" weight={600} rotate>{nameLabel.text}</PlanText>
+      <PlanText x={cx + subOffset} y={cy} size={subLabel.size} fill={subColor} weight={500} rotate>{subLabel.text}</PlanText>
+    </>
+  ) : (
+    <>
+      <PlanText x={cx} y={cy + nameOffset} size={nameLabel.size} fill="#e2e8f0" weight={600}>{nameLabel.text}</PlanText>
+      <PlanText x={cx} y={cy + subOffset} size={subLabel.size} fill={subColor} weight={500}>{subLabel.text}</PlanText>
+    </>
+  );
 }
 
 function FloorPlanSVG({
-  viewBox,
+  view,
   rooms,
-  ctxRooms,
   dimmedFilter,
   onRoomClick,
   onBuildingClick,
-  showStructure,
   minWidth,
 }: {
-  viewBox: string;
+  view: PlanView;
   rooms: RoomWithDonation[];
-  ctxRooms: typeof CTX_ROOMS;
   dimmedFilter: (room: RoomWithDonation) => boolean;
   onRoomClick: (room: RoomWithDonation) => void;
   onBuildingClick: () => void;
-  showStructure: "all" | "living" | "bay" | "admin";
   minWidth?: string;
 }) {
+  const width = view.x1 - view.x0;
+  const visibleRooms = view.full ? rooms : rooms.filter((r) => inView(r.coordinates, view));
+  const ctxRooms = view.full ? CTX_ROOMS : CTX_ROOMS.filter((c) => inView(c, view));
+  const doorVisible = ([dx, dw]: [number, number]) => dx >= view.x0 && dx + dw <= view.x1;
+
   return (
-    <svg viewBox={viewBox} className="w-full h-auto block"
+    <svg viewBox={view.viewBox} className="w-full h-auto block"
       style={minWidth ? { minWidth } : undefined}>
-      {/* Building fill */}
-      {(showStructure === "all" || showStructure === "living") && (
-        <rect x={0} y={0} width={250} height={260} fill="rgba(30,42,65,0.7)" />
-      )}
-      {(showStructure === "all" || showStructure === "bay") && (
-        <rect x={250} y={0} width={375} height={260} fill="rgba(30,42,65,0.7)" />
-      )}
-      {(showStructure === "all" || showStructure === "admin") && (
-        <rect x={625} y={0} width={305} height={260} fill="rgba(30,42,65,0.7)" />
+      {/* Floor */}
+      <rect x={view.x0} y={0} width={width} height={BUILDING_H} fill={FLOOR_COLOR} />
+
+      {/* Outer wall, stroked wholly outside the footprint */}
+      <rect x={view.x0 - WALL_T / 2} y={-WALL_T / 2} width={width + WALL_T} height={BUILDING_H + WALL_T}
+        fill="none" stroke={WALL_COLOR} strokeWidth={WALL_T} rx={WALL_T / 2}
+        style={{ pointerEvents: "none" }} />
+      {view.full && (
+        <rect x={view.x0 - WALL_T / 2} y={-WALL_T / 2} width={width + WALL_T} height={BUILDING_H + WALL_T}
+          fill="none" stroke="transparent" strokeWidth={WALL_T * 2.5}
+          style={{ cursor: "pointer", pointerEvents: "stroke" }}
+          onClick={onBuildingClick}>
+          <title>Building Naming Rights</title>
+        </rect>
       )}
 
-      {/* Building outline */}
-      {showStructure === "all" && (
-        <>
-          <rect x={-6} y={-6} width={942} height={272}
-            fill="none" stroke="transparent" strokeWidth={16}
-            style={{ cursor: "pointer", pointerEvents: "stroke" }}
-            onClick={onBuildingClick} />
-          <rect x={0} y={0} width={930} height={260} fill="none" stroke="#7a9cc0" strokeWidth={8} rx={1}
-            style={{ pointerEvents: "none" }} />
-        </>
-      )}
-
-      {/* Section borders for zoomed views */}
-      {showStructure === "living" && (
-        <>
-          <rect x={0} y={0} width={250} height={260} fill="none" stroke="#7a9cc0" strokeWidth={4} rx={1} />
-        </>
-      )}
-      {showStructure === "bay" && (
-        <>
-          <rect x={250} y={0} width={375} height={260} fill="none" stroke="#7a9cc0" strokeWidth={4} rx={1} />
-        </>
-      )}
-      {showStructure === "admin" && (
-        <>
-          <rect x={625} y={0} width={305} height={260} fill="none" stroke="#7a9cc0" strokeWidth={4} rx={1} />
-          {/* Flag plaza outline */}
-          <rect x={870} y={262} width={55} height={32} fill="none" stroke="#3d4a5c"
-            strokeWidth={1.5} rx={4} strokeDasharray="5,3" />
-        </>
-      )}
-
-      {/* Section dividers */}
-      {(showStructure === "all" || showStructure === "living" || showStructure === "bay") && (
-        <line x1={250} y1={0} x2={250} y2={265} stroke="#7a9cc0" strokeWidth={4} />
-      )}
-      {(showStructure === "all" || showStructure === "bay" || showStructure === "admin") && (
-        <line x1={625} y1={0} x2={625} y2={260} stroke="#7a9cc0" strokeWidth={4} />
-      )}
-
-      {/* Bay doors - top */}
-      {(showStructure === "all" || showStructure === "bay") && [[250, 94], [344, 93]].map(([bx, bw], i) => (
-        <rect key={`top-${i}`} x={bx + 12} y={-2} width={bw - 24} height={5}
-          fill="none" stroke="#6b8aaa" strokeWidth={1.5} rx={2} strokeDasharray="4,2" />
+      {/* Bay doors and entrance */}
+      {TOP_DOORS.filter(doorVisible).map(([dx, dw]) => (
+        <WallDoor key={`top-${dx}`} x={dx} w={dw} y={-WALL_T} />
+      ))}
+      {BOTTOM_DOORS.filter(doorVisible).map(([dx, dw]) => (
+        <WallDoor key={`bot-${dx}`} x={dx} w={dw} y={BUILDING_H} />
       ))}
 
-      {/* Bay doors - bottom */}
-      {(showStructure === "all" || showStructure === "bay") && [[250, 94], [344, 93], [437, 94], [531, 94]].map(([bx, bw], i) => (
-        <rect key={`bot-${i}`} x={bx + 12} y={257} width={bw - 24} height={5}
-          fill="none" stroke="#6b8aaa" strokeWidth={1.5} rx={2} strokeDasharray="4,2" />
-      ))}
-
-      {/* Daily Supply divider */}
-      {(showStructure === "all" || showStructure === "bay") && (
-        <line x1={437} y1={84} x2={625} y2={84} stroke="#7a9cc0" strokeWidth={2} />
-      )}
-
-      {/* Flag plaza outline (full view) */}
-      {showStructure === "all" && (
-        <rect x={870} y={262} width={55} height={32} fill="none" stroke="#3d4a5c"
-          strokeWidth={1.5} rx={4} strokeDasharray="5,3" />
-      )}
-
-      {/* Context rooms */}
-      {ctxRooms.map((r, i) => (
-        <g key={`ctx-${i}`}>
-          <rect x={r.x} y={r.y} width={r.w} height={r.h}
-            fill={TYPE_COLORS._.f} stroke={TYPE_COLORS._.s} strokeWidth={0.8} rx={1} />
-          <text x={r.x + r.w / 2} y={r.y + r.h / 2}
-            fill="#4b5563" fontFamily="Inter,system-ui,sans-serif" fontWeight={500}
-            textAnchor="middle" dominantBaseline="central"
-            fontSize={r.w < 45 ? 5 : 6} style={{ pointerEvents: "none" }}>
-            {r.name}
-          </text>
-        </g>
-      ))}
-
-      {/* Naming rooms */}
-      {rooms.map((room) => {
-        const { x, y, w, h } = room.coordinates;
-        const status: RoomStatus = room.donation?.status ?? "available";
-        const colors = status !== "available" ? STATUS_FILL[status] : TYPE_COLORS[room.type] || TYPE_COLORS._;
-        const dimmed = dimmedFilter(room);
-        const sn = shortenName(room.name);
-        const sp = shortenPrice(room.price);
-        const cx = x + w / 2;
-        const cy = y + h / 2;
-        const isVert = h > w * 2.5;
-        const isHall = w > h * 5;
-
+      {/* Context rooms (not nameable) */}
+      {ctxRooms.map((r, i) => {
+        const vertical = r.h > r.w * 2.5;
+        const size = fitSize(r.name, 5, (vertical ? r.h : r.w) - 2 * ROOM_GAP - 2);
         return (
-          <g key={room.id} className="cursor-pointer hover:brightness-150 transition-[filter]"
-            opacity={dimmed ? 0.25 : 1}
-            onClick={() => onRoomClick(room)}>
-            <rect x={x} y={y} width={w} height={h}
-              fill={colors.f} stroke={colors.s} strokeWidth={1.5} rx={1} />
-
-            {isVert ? (
-              <g transform={`translate(${cx},${cy}) rotate(-90)`}>
-                <text x={0} y={-4} fill="#e2e8f0" fontFamily="Inter,system-ui,sans-serif"
-                  fontWeight={600} textAnchor="middle" dominantBaseline="central" fontSize={7}
-                  style={{ pointerEvents: "none" }}>{sn}</text>
-                <text x={0} y={7} fill="#d4a44a" fontFamily="Inter,system-ui,sans-serif"
-                  fontWeight={500} textAnchor="middle" dominantBaseline="central" fontSize={5.5}
-                  style={{ pointerEvents: "none" }}>
-                  {status !== "available" ? status.toUpperCase() : `$${sp}`}
-                </text>
-              </g>
-            ) : isHall ? (
-              <text x={cx} y={cy} fill="#e2e8f0" fontFamily="Inter,system-ui,sans-serif"
-                fontWeight={600} textAnchor="middle" dominantBaseline="central" fontSize={5.5}
-                style={{ pointerEvents: "none" }}>
-                {sn} — {status !== "available" ? status.toUpperCase() : `$${sp}`}
-              </text>
-            ) : (
-              <>
-                <text x={cx} y={cy - (w < 42 ? 3.6 : w < 55 ? 3.9 : w < 80 ? 4.6 : 5.5)}
-                  fill="#e2e8f0" fontFamily="Inter,system-ui,sans-serif" fontWeight={600}
-                  textAnchor="middle" dominantBaseline="central"
-                  fontSize={w < 42 ? 5.5 : w < 55 ? 6 : w < 80 ? 7 : 8.5}
-                  style={{ pointerEvents: "none" }}>{sn}</text>
-                <text x={cx} y={cy + (w < 42 ? 3.6 : w < 55 ? 3.9 : w < 80 ? 4.6 : 5.5) + 1}
-                  fill={status !== "available" ? (status === "pledged" ? "#f0c040" : "#58d68d") : "#d4a44a"}
-                  fontFamily="Inter,system-ui,sans-serif" fontWeight={500}
-                  textAnchor="middle" dominantBaseline="central"
-                  fontSize={w < 42 ? 4.5 : w < 55 ? 5 : w < 80 ? 6 : 7.5}
-                  style={{ pointerEvents: "none" }}>
-                  {status !== "available"
-                    ? `${status.toUpperCase()}${room.donation?.donor_name ? ` - ${room.donation.donor_name}` : ""}`
-                    : `$${sp}`}
-                </text>
-              </>
+          <g key={`ctx-${i}`}>
+            <rect x={r.x + ROOM_GAP} y={r.y + ROOM_GAP} width={r.w - 2 * ROOM_GAP} height={r.h - 2 * ROOM_GAP}
+              fill="rgba(255,255,255,0.025)" stroke="rgba(122,156,192,0.16)" strokeWidth={0.6} rx={1.5} />
+            {size && (
+              <PlanText x={r.x + r.w / 2} y={r.y + r.h / 2} size={size} fill="#5b6679" weight={500} rotate={vertical}>
+                {r.name}
+              </PlanText>
             )}
           </g>
         );
       })}
 
-      {/* Section labels (full view only) */}
-      {showStructure === "all" && ([
-        ["L I V I N G   Q U A R T E R S", 125],
-        ["A P P A R A T U S   B A Y", 437],
-        ["A D M I N  /  O P S", 778],
-      ] as [string, number][]).map(([label, lx]) => (
-        <text key={label} x={lx} y={275} fill="#9ca3af"
-          fontFamily="Georgia,serif" fontWeight="bold" textAnchor="middle"
-          dominantBaseline="central" fontSize={9} letterSpacing={2}
-          style={{ pointerEvents: "none" }}>
-          {label}
-        </text>
-      ))}
+      {/* Nameable rooms */}
+      {visibleRooms.map((room) => {
+        const { x, y, w, h } = room.coordinates;
+        const status: RoomStatus = room.donation?.status ?? "available";
+        const colors = status !== "available" ? STATUS_FILL[status] : TYPE_COLORS[room.type] || TYPE_COLORS._;
 
-      {/* Entrance marker */}
-      {(showStructure === "all" || showStructure === "admin") && (
-        <text x={900} y={258} fill="#4b5563" fontSize={5} textAnchor="middle"
-          fontFamily="Inter,system-ui" style={{ pointerEvents: "none" }}>
-          &#9650; ENTRANCE
-        </text>
+        return (
+          <g key={room.id} className="cursor-pointer hover:brightness-150 transition-[filter]"
+            opacity={dimmedFilter(room) ? 0.25 : 1}
+            onClick={() => onRoomClick(room)}>
+            <rect x={x + ROOM_GAP} y={y + ROOM_GAP} width={w - 2 * ROOM_GAP} height={h - 2 * ROOM_GAP}
+              fill={colors.f} stroke={colors.s} strokeWidth={1} rx={1.5} />
+            <RoomLabel room={room} status={status} />
+          </g>
+        );
+      })}
+
+      {view.full && (
+        <>
+          {/* Walls between the three sections */}
+          {[250, 625].map((wx) => (
+            <line key={wx} x1={wx} y1={0} x2={wx} y2={BUILDING_H}
+              stroke={WALL_COLOR} strokeWidth={1} style={{ pointerEvents: "none" }} />
+          ))}
+
+          {SECTION_LABELS.map(([label, lx]) => (
+            <text key={label} x={lx} y={279} fill="#8b98ad" fontFamily={FONT} fontWeight={600}
+              textAnchor="middle" dominantBaseline="central" fontSize={7.5} letterSpacing={3}
+              style={{ pointerEvents: "none" }}>
+              {label}
+            </text>
+          ))}
+        </>
       )}
     </svg>
   );
@@ -317,13 +345,11 @@ export function BlueprintCanvas({
           <div className="rounded-xl border border-border overflow-hidden">
             <div className="blueprint-grid p-3 lg:p-6 overflow-x-auto">
               <FloorPlanSVG
-                viewBox="-4 -4 948 300"
+                view={FULL_VIEW}
                 rooms={rooms}
-                ctxRooms={CTX_ROOMS}
                 dimmedFilter={dimmedFilter}
                 onRoomClick={onRoomClick}
                 onBuildingClick={handleBuildingClick}
-                showStructure="all"
                 minWidth="680px"
               />
             </div>
@@ -337,15 +363,7 @@ export function BlueprintCanvas({
   }
 
   // Mobile: section selector + zoomed view
-  const currentSection = SECTIONS.find((s) => s.id === activeSection);
-
-  const filteredRooms = currentSection
-    ? rooms.filter((r) => roomInSection(r, currentSection))
-    : rooms;
-
-  const filteredCtx = currentSection
-    ? CTX_ROOMS.filter((c) => ctxInSection(c, currentSection))
-    : CTX_ROOMS;
+  const currentSection = SECTIONS.find((sec) => sec.id === activeSection);
 
   return (
     <div className="flex-1 p-3 overflow-auto">
@@ -375,27 +393,13 @@ export function BlueprintCanvas({
       {/* Zoomed section or full overview */}
       <div className="rounded-xl border border-border overflow-hidden">
         <div className="blueprint-grid p-3">
-        {currentSection ? (
           <FloorPlanSVG
-            viewBox={currentSection.viewBox}
-            rooms={filteredRooms}
-            ctxRooms={filteredCtx}
-            dimmedFilter={dimmedFilter}
-            onRoomClick={onRoomClick}
-            onBuildingClick={handleBuildingClick}
-            showStructure={currentSection.id}
-          />
-        ) : (
-          <FloorPlanSVG
-            viewBox="-4 -4 948 300"
+            view={currentSection ? currentSection.view : FULL_VIEW}
             rooms={rooms}
-            ctxRooms={CTX_ROOMS}
             dimmedFilter={dimmedFilter}
             onRoomClick={onRoomClick}
             onBuildingClick={handleBuildingClick}
-            showStructure="all"
           />
-        )}
         </div>
         <Legend />
       </div>
@@ -450,10 +454,10 @@ function Footer() {
   return (
     <div className="mt-4 text-center space-y-1.5">
       <p className="text-gray-300 text-sm">
-        Interested in naming a space? Contact campaign leadership at{" "}
-        <a href={contactMailto("Naming rights inquiry")}
-          className="text-gold font-semibold hover:underline whitespace-nowrap">
-          {CONTACT_EMAIL}
+        Interested in naming a space?{" "}
+        <a href={contactMailto("Naming rights inquiry")} title={`Email ${CONTACT_EMAIL}`}
+          className="text-gold font-semibold underline underline-offset-4 decoration-gold/40 hover:decoration-gold whitespace-nowrap">
+          Campaign Contact
         </a>
       </p>
       <p className="text-gray-500 text-xs">
